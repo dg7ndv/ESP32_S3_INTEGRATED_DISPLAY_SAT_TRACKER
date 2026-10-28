@@ -161,8 +161,28 @@ The satellite name in the header opens the grouped selector overlay. Built-in gr
 | mDNS hostname | `satapi.local` | Device hostname used for local services |
 | Tracking HTTP endpoint | `http://satapi.local:8080/api/tracking` | Returns the active satellite name, azimuth, and elevation as JSON |
 | Screenshot HTTP endpoint | `http://satapi.local:8080/screenshot.bmp` | Captures the current display as a BMP |
+| Config HTTP endpoint | `http://satapi.local:8080/api/config` | Sets the active satellite and/or observer location (GET or POST) |
 
 The tracking endpoint returns `Cache-Control: no-store`. If tracking data is unavailable, it returns HTTP 503 with a JSON error response.
+
+### Remote configuration
+
+`/api/config` changes the active satellite and/or the observer location. Both are stored persistently, like the SETUP screen.
+
+| Parameter | Meaning |
+|-----------|---------|
+| `sat` | NORAD id of the satellite to track. Its TLE must already be cached on the device. |
+| `lat`, `lon` | Observer location in degrees (±90 / ±180). Must be given together. |
+
+```bash
+curl "http://satapi.local:8080/api/config?sat=25544"
+curl "http://satapi.local:8080/api/config?lat=47.4&lon=8.5"
+curl -X POST -d "sat=7530" http://satapi.local:8080/api/config
+```
+
+Success returns `{"ok":true}`. Missing or invalid parameters return HTTP 400; an unknown NORAD id returns HTTP 404 and keeps the previous satellite active.
+
+> **Security:** the endpoint has no authentication. Anyone on the same network can change the satellite or location, so do not expose port 8080 to the internet.
 
 ---
 

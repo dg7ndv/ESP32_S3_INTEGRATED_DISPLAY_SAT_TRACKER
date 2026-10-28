@@ -38,6 +38,50 @@ static void serveTracking() {
     httpServer.send(200, "application/json", body);
 }
 
+// Set active satellite and/or observer location, e.g.
+//   /api/config?sat=25544   /api/config?lat=47.4&lon=8.5   (GET or POST)
+static void serveConfig() {
+    httpServer.sendHeader("Cache-Control", "no-store");
+    bool hasSat = httpServer.hasArg("sat");
+    bool hasLat = httpServer.hasArg("lat"), hasLon = httpServer.hasArg("lon");
+
+    if (!hasSat && !hasLat && !hasLon) {
+        httpServer.send(400, "application/json", "{\"error\":\"Use sat=<NORAD> and/or lat=&lon=\"}");
+        return;
+    }
+    if (hasLat != hasLon) {
+        httpServer.send(400, "application/json", "{\"error\":\"lat and lon must be given together\"}");
+        return;
+    }
+
+    uint32_t satId = hasSat ? (uint32_t)httpServer.arg("sat").toInt() : SatTracker::getState().noradId;
+    if (hasSat && satId == 0) {
+        httpServer.send(400, "application/json", "{\"error\":\"Invalid NORAD id\"}");
+        return;
+    }
+
+    if (hasLat) {
+        float lat = httpServer.arg("lat").toFloat(), lon = httpServer.arg("lon").toFloat();
+        if (lat < -90.0f || lat > 90.0f || lon < -180.0f || lon > 180.0f) {
+            httpServer.send(400, "application/json", "{\"error\":\"lat +-90, lon +-180\"}");
+            return;
+        }
+        NVSConfig::LocationData cur = NVSConfig::loadLocation();
+        NVSConfig::saveLocation(lat, lon, cur.valid ? cur.timezone : "UTC");
+    }
+
+    uint32_t prevSat = SatTracker::getState().noradId;
+    bool ok = satId > 0 ? SatTracker::begin(satId) : true;   // reload tracker (also applies new site)
+    if (!ok) {
+        if (prevSat > 0 && SatTracker::begin(prevSat)) SatTracker::update();   // keep the previous satellite active
+        httpServer.send(404, "application/json", "{\"error\":\"No TLE cached for this NORAD id\"}");
+        return;
+    }
+    if (hasSat) NVSConfig::saveSelectedSat(satId);
+    SatTracker::update();   // fill az/el right away instead of reporting zeros
+    httpServer.send(200, "application/json", "{\"ok\":true}");
+}
+
 static void show_splash() {
     File root = LittleFS.open("/");
     File f = root.openNextFile();
@@ -100,6 +144,7 @@ void setup() {
         });
     }
     httpServer.on("/api/tracking", HTTP_GET, serveTracking);
+    httpServer.on("/api/config", serveConfig);
     httpServer.begin();
     Serial.printf("[http] Tracking API ready at http://%s.local:8080/api/tracking\n", WIFI_HOSTNAME);
 
