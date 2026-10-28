@@ -162,7 +162,15 @@ The satellite name in the header opens the grouped selector overlay. Built-in gr
 | Tracking HTTP endpoint | `http://satapi.local:8080/api/tracking` | Returns the active satellite name, azimuth, and elevation as JSON |
 | Screenshot HTTP endpoint | `http://satapi.local:8080/screenshot.bmp` | Captures the current display as a BMP |
 
-The tracking endpoint returns `Cache-Control: no-store`. If tracking data is unavailable, it returns HTTP 503 with a JSON error response.
+Neuer Endpunkt /api/config eingebaut. 
+
+curl "http://192.168.xx.xx:8080/api/config?lat=49.3123&lon=11.0200"
+curl "http://192.168.xx.xx:8080/api/config?sat=25544"
+
+Satellit: Mit sat=<NORAD-ID> wählt er den aktiven Satelliten. Die TLE-Daten müssen dafür auf dem Gerät gespeichert sein, sonst kommt 404.
+Position: lat und lon müssen zusammen angegeben werden (±90 und ±180). Er speichert beides dauerhaft und lädt den Tracker neu.
+Antworten: Bei Erfolg kommt {"ok":true}, bei falschen Parametern 400. Beides geht auch in einem Aufruf.
+
 
 ---
 
